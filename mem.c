@@ -20,7 +20,6 @@ struct fb {
 };
 
 struct fb* PremZL;
-struct fb* DebMem;
 size_t SizeMem;
 
 void mem_init(void* mem, size_t taille)
@@ -34,7 +33,6 @@ void mem_init(void* mem, size_t taille)
 	a->next = NULL;
 
 	PremZL = mem;
-	DebMem = mem;
 	SizeMem = taille;
 
 	mem_fit(&mem_fit_first);
@@ -42,12 +40,12 @@ void mem_init(void* mem, size_t taille)
 
 void mem_show(void (*print)(void *, size_t, int)) {
 	size_t taille=0;
-	struct fb* mem = DebMem;
+	struct fb* mem = get_memory_adr();
 	struct fb* ZL = PremZL;
 	size_t k;
 	while (taille < SizeMem) {
 		k=*((size_t*)(mem));
-		if(mem==ZL){
+		if(mem==(void*)ZL){
 			print(mem,k,1);
 			ZL = ZL->next;
 		}
@@ -55,7 +53,7 @@ void mem_show(void (*print)(void *, size_t, int)) {
 			print(mem,k,0);
 		}
 		taille += k;
-		mem += k;
+		mem = (void*) mem + k;
 	}
 }
 
@@ -74,7 +72,7 @@ void *mem_alloc(size_t taille) {
 	if(PremZL == fb) {
 		if (PremZL->next == NULL){
 			size_t t = PremZL->size;
-			PremZL += taille + sizeof(size_t);
+			PremZL = ((void*)PremZL + taille + sizeof(size_t));
 			PremZL->size = t - (taille + sizeof(size_t));
 		}
 		else {
@@ -90,10 +88,9 @@ void *mem_alloc(size_t taille) {
 			ZL = ZL->next;
 		}
 	}
-	size_t* zo = (size_t*)fb;
-	*zo = taille + sizeof(size_t);
-	printf ("%ld ", *zo);
-	return zo + sizeof(size_t);
+	void* zo = (size_t*)fb;
+	*(size_t*)zo = taille + sizeof(size_t);
+	return zo+sizeof(size_t);
 }
 
 
