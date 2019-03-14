@@ -13,6 +13,8 @@
 #endif
 #define align(v,a) ((intptr_t)(v)+(a-1)&~((a)-1))
 
+#define ALIGNEMENT 4
+
 struct fb {
 	size_t size;
 	struct fb* next;
@@ -69,11 +71,16 @@ void *mem_alloc(size_t taille) {
   if(fb == NULL){
 		return NULL;
 	}
+	size_t module = taille + sizeof(size_t);
+	while(module>ALIGNEMENT){
+		module-=ALIGNEMENT;
+	}
+	size_t taillealign =  (taille + sizeof(size_t)) + ALIGNEMENT - module;
 	if(PremZL == fb) {
 		if (PremZL->next == NULL){
 			size_t t = PremZL->size;
-			PremZL = ((void*)PremZL + taille + sizeof(size_t));
-			PremZL->size = t - (taille + sizeof(size_t));
+			PremZL = ((void*)PremZL + taillealign);
+			PremZL->size = t - taillealign;
 		}
 		else {
 			PremZL = PremZL->next;
@@ -89,7 +96,7 @@ void *mem_alloc(size_t taille) {
 		}
 	}
 	void* zo = (size_t*)fb;
-	*(size_t*)zo = taille + sizeof(size_t);
+	*(size_t*)zo = taillealign;
 	return zo+sizeof(size_t);
 }
 
