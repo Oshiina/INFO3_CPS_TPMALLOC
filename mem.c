@@ -42,6 +42,7 @@ void mem_init(void* mem, size_t taille)
 
 void mem_show(void (*print)(void *, size_t, int)) {
 	size_t tailletotale=0;
+	char c;
 	struct fb* mem = get_memory_adr();
 	struct fb* currentZL = PremZL;
 	size_t taille;
@@ -56,6 +57,7 @@ void mem_show(void (*print)(void *, size_t, int)) {
 		}
 		tailletotale += taille;
 		mem = (void*) mem + taille;
+		scanf("%c",&c);
 	}
 }
 
@@ -67,12 +69,15 @@ void mem_fit(mem_fit_function_t *f) {
 void *mem_alloc(size_t taille) {
 
 	__attribute__((unused)) /* juste pour que gcc compile ce squelette avec -Werror */
+
 	struct fb *fb=mem_fit_fn(PremZL,taille + sizeof(size_t));
   if(fb == NULL){
 		return NULL;
 	}
 	size_t taillealign =  (taille + sizeof(size_t)) + ALIGNEMENT - (taille + sizeof(size_t))%ALIGNEMENT;
-	if((taille + sizeof(size_t))%ALIGNEMENT == 0) taillealign -= ALIGNEMENT;
+	if((taille + sizeof(size_t))%ALIGNEMENT == 0) {
+		taillealign -= ALIGNEMENT;
+	}
 	if(PremZL == fb) {
 		if (PremZL->next == NULL){
 			size_t t = PremZL->size;
@@ -80,16 +85,52 @@ void *mem_alloc(size_t taille) {
 			PremZL->size = t - taillealign;
 		}
 		else {
-			PremZL = PremZL->next;
+			if(PremZL->size <= taillealign + ALIGNEMENT){
+				taillealign += ALIGNEMENT;
+				PremZL = PremZL->next;
+			}
+			else{
+				struct fb *tmp = PremZL->next;
+				size_t t = PremZL->size;
+				PremZL = ((void*)PremZL + taillealign);
+				PremZL->size = t - taillealign;
+				PremZL->next = tmp;
+			}
+
 		}
 	}
 	else{
 		struct fb *currentZL = PremZL;
-		while (currentZL != NULL){
-			if(fb == currentZL->next){
-				currentZL->next = currentZL->next->next;
+		struct fb *suivZL ;
+		while (currentZL->next != NULL){
+			suivZL = currentZL->next;
+			if(fb == suivZL){
+				if(suivZL->next == NULL){
+					size_t t = suivZL->size;
+					suivZL = ((void*)suivZL + taillealign);
+					suivZL->size = t - taillealign;
+					currentZL->next = suivZL;
+					printf("sal");
+				}
+				else{
+					printf("%ld %ld", suivZL->size,taillealign + ALIGNEMENT);
+					if(suivZL->size >taillealign && suivZL->size <= taillealign + ALIGNEMENT){
+						printf("alo");
+						taillealign += ALIGNEMENT;
+						currentZL->next = suivZL->next;
+					}
+					else{
+						struct fb *tmp = suivZL->next;
+						size_t t = suivZL->size;
+						suivZL = ((void*)suivZL + taillealign);
+						suivZL->size = t - taillealign;
+						suivZL->next = tmp;
+					}
+				}
 			}
-			currentZL = currentZL->next;
+			if(currentZL -> next != NULL){
+				currentZL = currentZL->next;
+			}
 		}
 	}
 	void* zo = (size_t*)fb;
