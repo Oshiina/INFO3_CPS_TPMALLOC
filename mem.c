@@ -13,7 +13,7 @@
 #endif
 #define align(v,a) ((intptr_t)(v)+(a-1)&~((a)-1))
 
-#define ALIGNEMENT 4
+#define ALIGNEMENT sizeof(struct fb*)
 
 struct fb {
 	size_t size;
@@ -41,21 +41,21 @@ void mem_init(void* mem, size_t taille)
 }
 
 void mem_show(void (*print)(void *, size_t, int)) {
-	size_t taille=0;
+	size_t tailletotale=0;
 	struct fb* mem = get_memory_adr();
-	struct fb* ZL = PremZL;
-	size_t k;
-	while (taille < SizeMem) {
-		k=*((size_t*)(mem));
-		if(mem==(void*)ZL){
-			print(mem,k,1);
-			ZL = ZL->next;
+	struct fb* currentZL = PremZL;
+	size_t taille;
+	while (tailletotale < SizeMem) {
+		taille=*((size_t*)(mem));
+		if(mem==(void*)currentZL){
+			print(mem,taille,1);
+			currentZL = currentZL->next;
 		}
 		else{
-			print(mem,k,0);
+			print(mem,taille,0);
 		}
-		taille += k;
-		mem = (void*) mem + k;
+		tailletotale += taille;
+		mem = (void*) mem + taille;
 	}
 }
 
@@ -71,11 +71,8 @@ void *mem_alloc(size_t taille) {
   if(fb == NULL){
 		return NULL;
 	}
-	size_t module = taille + sizeof(size_t);
-	while(module>ALIGNEMENT){
-		module-=ALIGNEMENT;
-	}
-	size_t taillealign =  (taille + sizeof(size_t)) + ALIGNEMENT - module;
+	size_t taillealign =  (taille + sizeof(size_t)) + ALIGNEMENT - (taille + sizeof(size_t))%ALIGNEMENT;
+	if((taille + sizeof(size_t))%ALIGNEMENT == 0) taillealign -= ALIGNEMENT;
 	if(PremZL == fb) {
 		if (PremZL->next == NULL){
 			size_t t = PremZL->size;
@@ -87,12 +84,12 @@ void *mem_alloc(size_t taille) {
 		}
 	}
 	else{
-		struct fb *ZL = PremZL;
-		while (ZL != NULL){
-			if(fb == ZL->next){
-				ZL->next = ZL->next->next;
+		struct fb *currentZL = PremZL;
+		while (currentZL != NULL){
+			if(fb == currentZL->next){
+				currentZL->next = currentZL->next->next;
 			}
-			ZL = ZL->next;
+			currentZL = currentZL->next;
 		}
 	}
 	void* zo = (size_t*)fb;
@@ -102,36 +99,41 @@ void *mem_alloc(size_t taille) {
 
 
 void mem_free(void* mem) {
-	struct fb* mem2 = mem - sizeof(size_t);
-	mem2->size = *(size_t*)(mem - sizeof(size_t));
-	printf("%ld ", mem2->size);
-	struct fb* ZL = PremZL;
-	if(mem2 < PremZL){
-		mem2->next = PremZL;
-		PremZL = mem2;
-		printf("%ld \n\n",PremZL->size);
+	mem = mem - sizeof(size_t);
+	struct fb *currentZL = PremZL;
+	struct fb *memoire = mem;
+	memoire->size = *(size_t*)mem;
+
+	if(memoire<PremZL){
+		PremZL = memoire;
+		PremZL->next = currentZL;
 	}
 	else{
-		while(mem2 > ZL->next){
-			ZL =  ZL->next;
+		while(memoire > currentZL->next){
+			currentZL =  currentZL->next;
 		}
-		mem2->next = ZL->next;
-		ZL->next =  mem2;
+		memoire->next = currentZL->next;
+		currentZL->next =  memoire;
 	}
-/*	if(mem2+mem2->size == mem2->next){
-		mem2->size += mem2->next->size;
-		mem2->next = mem2->next->next;
+
+	currentZL = PremZL;
+	struct fb* suivZL;
+	while(currentZL->next != NULL){
+		suivZL = currentZL->next;
+		if((void*)currentZL + currentZL->size == currentZL->next){
+			currentZL->size += suivZL->size;
+			currentZL->next = suivZL->next;
+		}
+		else{
+			currentZL = currentZL->next;
+		}
 	}
-  if(ZL+ZL->size == mem2){
-		 ZL->size += mem2->size;
-		 ZL->next = mem2->next;
-	 }*/
-	 return;
+	return;
 }
 
 
 struct fb* mem_fit_first(struct fb *list, size_t size) {
-	while(list !=NULL && list->size < size){
+	while(list !=NULL && list->size < size + sizeof(size_t)){
 		list = list->next;
 	}
 	return list;
